@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Sema/BoncParsedAttr.hpp"
 #include "clang/Sema/ParsedAttr.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/AttrSubjectMatchRules.h"
@@ -27,6 +28,8 @@
 using namespace clang;
 
 LLVM_INSTANTIATE_REGISTRY(ParsedAttrInfoRegistry)
+
+static ParsedAttrInfoRegistry::Add<Bonc::ExampleAttrInfo> X("example", "");
 
 IdentifierLoc *IdentifierLoc::create(ASTContext &Ctx, SourceLocation Loc,
                                      IdentifierInfo *Ident) {
