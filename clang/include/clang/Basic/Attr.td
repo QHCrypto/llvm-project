@@ -3823,3 +3823,9 @@ def EnforceTCBLeaf : InheritableAttr {
   let Documentation = [EnforceTCBLeafDocs];
   bit InheritEvenIfAlreadyPresent = 1;
 }
+
+def BoncRound : InheritableAttr {
+  let Spellings = [CXX11<"bonc", "round">, C2x<"bonc", "round">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+}
