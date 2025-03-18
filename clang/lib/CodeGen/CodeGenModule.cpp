@@ -2188,6 +2188,14 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
+
+  if (const auto* Bonc_Round = FD->getAttr<BoncRoundAttr>()) {
+    llvm::LLVMContext &Ctx = F->getContext();
+    llvm::MDBuilder MDB(Ctx);
+    llvm::StringRef str("round");
+    F->addMetadata(llvm::LLVMContext::MD_bonc_round,
+                   *llvm::MDNode::get(Ctx, {MDB.createString(str)}));
+  }
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
