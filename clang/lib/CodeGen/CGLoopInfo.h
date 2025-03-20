@@ -40,6 +40,8 @@ struct LoopAttributes {
   /// Generate llvm.loop.parallel metadata for loads and stores.
   bool IsParallel;
 
+  bool IsBoncRound;
+
   /// State of loop vectorization or unrolling.
   enum LVEnableState { Unspecified, Enable, Disable, Full };
 
@@ -230,6 +232,9 @@ public:
 
   /// Set the next pushed loop as parallel.
   void setParallel(bool Enable = true) { StagedAttrs.IsParallel = Enable; }
+
+  /// Set the next pushed loop as Bonc round function
+  void setBoncRound(bool Enable = true) { StagedAttrs.IsBoncRound = Enable; }
 
   /// Set the next pushed loop 'vectorize.enable'
   void setVectorizeEnable(bool Enable = true) {

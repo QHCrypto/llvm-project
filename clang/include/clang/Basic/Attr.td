@@ -3824,8 +3824,10 @@ def EnforceTCBLeaf : InheritableAttr {
   bit InheritEvenIfAlreadyPresent = 1;
 }
 
-def BoncRound : InheritableAttr {
+def BoncRound : DeclOrStmtAttr {
   let Spellings = [CXX11<"bonc", "round">, C2x<"bonc", "round">];
-  let Subjects = SubjectList<[Function]>;
+  let Subjects = SubjectList<[Function, ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                              ErrorDiag,
+                              "function, 'for', 'while', and 'do' statements">;
   let Documentation = [Undocumented];
 }

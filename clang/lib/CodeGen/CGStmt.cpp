@@ -1044,6 +1044,11 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // a compound statement.
     RunCleanupsScope BodyScope(*this);
     EmitStmt(S.getBody());
+
+    // MARK: my code is here!!
+    auto *fn = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::bonc_loop_exit);
+    this->Builder.CreateCall(fn);
+
   }
 
   // If there is an increment, emit it next.

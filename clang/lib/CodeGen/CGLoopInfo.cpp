@@ -9,6 +9,7 @@
 #include "CGLoopInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Attrs.inc"
 #include "clang/AST/Expr.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "llvm/IR/BasicBlock.h"
@@ -445,7 +446,7 @@ MDNode *LoopInfo::createMetadata(
 }
 
 LoopAttributes::LoopAttributes(bool IsParallel)
-    : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
+    : IsParallel(IsParallel), IsBoncRound(false), VectorizeEnable(LoopAttributes::Unspecified),
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
       VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
@@ -456,6 +457,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
 
 void LoopAttributes::clear() {
   IsParallel = false;
+  IsBoncRound = false;
   VectorizeWidth = 0;
   VectorizeScalable = LoopAttributes::Unspecified;
   InterleaveCount = 0;
@@ -599,6 +601,10 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
                          const llvm::DebugLoc &EndLoc, bool MustProgress) {
   // Identify loop hint attributes from Attrs.
   for (const auto *Attr : Attrs) {
+    if (isa<BoncRoundAttr>(Attr)) {
+      setBoncRound(true);
+      continue;
+    }
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(Attr);
     const OpenCLUnrollHintAttr *OpenCLHint =
         dyn_cast<OpenCLUnrollHintAttr>(Attr);
