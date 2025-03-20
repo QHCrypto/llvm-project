@@ -810,6 +810,7 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
     switch (Ty->getTypeID()) {
     default: llvm_unreachable("Unhandled type");
     case Type::VoidTyID:      Result += "isVoid";   break;
+    case Type::LabelTyID:     Result += "Label";    break;
     case Type::MetadataTyID:  Result += "Metadata"; break;
     case Type::HalfTyID:      Result += "f16";      break;
     case Type::BFloatTyID:    Result += "bf16";     break;
@@ -936,7 +937,8 @@ enum IIT_Info {
   IIT_BF16 = 48,
   IIT_STRUCT9 = 49,
   IIT_V256 = 50,
-  IIT_AMX  = 51
+  IIT_AMX  = 51,
+  IIT_LABEL = 52
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -961,6 +963,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   case IIT_AMX:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::AMX, 0));
+    return;
+  case IIT_LABEL:
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::Label, 0));
     return;
   case IIT_TOKEN:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Token, 0));
@@ -1200,6 +1205,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::VarArg: return Type::getVoidTy(Context);
   case IITDescriptor::MMX: return Type::getX86_MMXTy(Context);
   case IITDescriptor::AMX: return Type::getX86_AMXTy(Context);
+  case IITDescriptor::Label: return Type::getLabelTy(Context);
   case IITDescriptor::Token: return Type::getTokenTy(Context);
   case IITDescriptor::Metadata: return Type::getMetadataTy(Context);
   case IITDescriptor::Half: return Type::getHalfTy(Context);
@@ -1382,6 +1388,7 @@ static bool matchIntrinsicType(
     case IITDescriptor::VarArg: return true;
     case IITDescriptor::MMX:  return !Ty->isX86_MMXTy();
     case IITDescriptor::AMX:  return !Ty->isX86_AMXTy();
+    case IITDescriptor::Label: return !Ty->isLabelTy();
     case IITDescriptor::Token: return !Ty->isTokenTy();
     case IITDescriptor::Metadata: return !Ty->isMetadataTy();
     case IITDescriptor::Half: return !Ty->isHalfTy();

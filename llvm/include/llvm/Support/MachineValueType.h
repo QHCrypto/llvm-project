@@ -281,6 +281,9 @@ namespace llvm {
       // This value must be a multiple of 32.
       MAX_ALLOWED_VALUETYPE = 192,
 
+      // A value of type llvm::LabelTy
+      label          = 247,
+
       // A value of type llvm::TokenTy
       token          = 248,
 

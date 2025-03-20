@@ -117,6 +117,7 @@ namespace Intrinsic {
       Void,
       VarArg,
       MMX,
+      Label,
       Token,
       Metadata,
       Half,
