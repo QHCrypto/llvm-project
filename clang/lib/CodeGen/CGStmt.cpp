@@ -26,6 +26,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
@@ -791,8 +792,33 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   EmitBlock(ContBlock, true);
 }
 
+static bool IsBoncLoop(ArrayRef<const Attr *> Attrs) {
+  for (const Attr* a : Attrs) {
+    if (a->getKind() == attr::BoncRound) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void EmitBoncLoopEnter(CodeGenFunction* self, llvm::BasicBlock* condBB) {
+  auto *fn = llvm::Intrinsic::getDeclaration(&self->CGM.getModule(),
+                                              llvm::Intrinsic::bonc_loop_enter);
+  llvm::Value *args[] = {condBB};
+  self->Builder.CreateCall(fn, args);
+}
+
+static void EmitBoncLoopExit(CodeGenFunction* self, llvm::BasicBlock* condBB) {
+  auto *fn = llvm::Intrinsic::getDeclaration(&self->CGM.getModule(),
+                                              llvm::Intrinsic::bonc_loop_exit);
+  llvm::Value *args[] = {condBB};
+  self->Builder.CreateCall(fn, args);
+}
+
 void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
                                     ArrayRef<const Attr *> WhileAttrs) {
+  bool IsBonc = IsBoncLoop(WhileAttrs);
+
   // Emit the header for the loop, which will also become
   // the continue target.
   JumpDest LoopHeader = getJumpDestInCurrentScope("while.cond");
@@ -866,6 +892,9 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
     RunCleanupsScope BodyScope(*this);
     EmitBlock(LoopBody);
     incrementProfileCounter(&S);
+    if (IsBonc) {
+      EmitBoncLoopEnter(this, LoopHeader.getBlock());
+    }
     EmitStmt(S.getBody());
   }
 
@@ -881,7 +910,10 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   LoopStack.pop();
 
   // Emit the exit block.
-  EmitBlock(LoopExit.getBlock(), true);
+  EmitBlock(LoopExit.getBlock(), !IsBonc);
+  if (IsBonc) {
+    EmitBoncLoopExit(this, LoopHeader.getBlock());
+  }
 
   // The LoopHeader typically is just a branch if we skipped emitting
   // a branch, try to erase it.
@@ -891,6 +923,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
 
 void CodeGenFunction::EmitDoStmt(const DoStmt &S,
                                  ArrayRef<const Attr *> DoAttrs) {
+  bool IsBonc = IsBoncLoop(DoAttrs);
   JumpDest LoopExit = getJumpDestInCurrentScope("do.end");
   JumpDest LoopCond = getJumpDestInCurrentScope("do.cond");
 
@@ -905,6 +938,9 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   EmitBlockWithFallThrough(LoopBody, &S);
   {
     RunCleanupsScope BodyScope(*this);
+    if (IsBonc) {
+      EmitBoncLoopEnter(this, LoopCond.getBlock());
+    }
     EmitStmt(S.getBody());
   }
 
@@ -944,6 +980,9 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
   // Emit the exit block.
   EmitBlock(LoopExit.getBlock());
+  if (IsBonc) {
+    EmitBoncLoopExit(this, LoopCond.getBlock());
+  }
 
   // The DoCond block typically is just a branch if we skipped
   // emitting a branch, try to erase it.
@@ -953,6 +992,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
 void CodeGenFunction::EmitForStmt(const ForStmt &S,
                                   ArrayRef<const Attr *> ForAttrs) {
+  bool IsBonc = IsBoncLoop(ForAttrs); 
   JumpDest LoopExit = getJumpDestInCurrentScope("for.end");
 
   LexicalScope ForScope(*this, S.getSourceRange());
@@ -1043,12 +1083,10 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // Create a separate cleanup scope for the body, in case it is not
     // a compound statement.
     RunCleanupsScope BodyScope(*this);
+    if (IsBonc) {
+      EmitBoncLoopEnter(this, CondBlock);
+    }
     EmitStmt(S.getBody());
-
-    // MARK: my code is here!!
-    auto *fn = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::bonc_loop_exit);
-    this->Builder.CreateCall(fn);
-
   }
 
   // If there is an increment, emit it next.
@@ -1069,12 +1107,16 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   LoopStack.pop();
 
   // Emit the fall-through block.
-  EmitBlock(LoopExit.getBlock(), true);
+  EmitBlock(LoopExit.getBlock(), !IsBonc);
+  if (IsBonc) {
+    EmitBoncLoopExit(this, CondBlock);
+  }
 }
 
 void
 CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
                                      ArrayRef<const Attr *> ForAttrs) {
+  bool IsBonc = IsBoncLoop(ForAttrs);
   JumpDest LoopExit = getJumpDestInCurrentScope("for.end");
 
   LexicalScope ForScope(*this, S.getSourceRange());
@@ -1133,6 +1175,9 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   {
     // Create a separate cleanup scope for the loop variable and body.
     LexicalScope BodyScope(*this, S.getSourceRange());
+    if (IsBonc) {
+      EmitBoncLoopEnter(this, CondBlock);
+    }
     EmitStmt(S.getLoopVarStmt());
     EmitStmt(S.getBody());
   }
@@ -1151,7 +1196,10 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   LoopStack.pop();
 
   // Emit the fall-through block.
-  EmitBlock(LoopExit.getBlock(), true);
+  EmitBlock(LoopExit.getBlock(), !IsBonc);
+  if (IsBonc) {
+    EmitBoncLoopExit(this, CondBlock);
+  }
 }
 
 void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {

@@ -1,0 +1,56 @@
+{
+  "version": 10,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "bonc",
+      "binaryDir": "${fileDir}/build",
+      "installDir": "${fileDir}/install",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LLVM_ENABLE_PROJECTS": "clang",
+        "LLVM_TARGETS_TO_BUILD": "host",
+        "CMAKE_INSTALL_PREFIX": "install"
+      },
+      "generator": "Ninja"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "bonc",
+      "configurePreset": "bonc",
+      "jobs": 24
+    },
+    {
+      "name": "bonc-install",
+      "configurePreset": "bonc",
+      "jobs": 24,
+      "targets": [
+        "install"
+      ]
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "bonc",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bonc"
+        },
+        {
+          "type": "build",
+          "name": "bonc"
+        },
+        {
+          "type": "build",
+          "name": "bonc-install"
+        }
+      ]
+    }
+  ]
+}
