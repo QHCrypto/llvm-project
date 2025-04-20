@@ -41,6 +41,7 @@ class QualType;
 class FunctionDecl;
 class TypeSourceInfo;
 class OMPTraitInfo;
+class BoncMetaparamInfo;
 
 /// Attr - This represents one attribute.
 class Attr : public AttributeCommonInfo {

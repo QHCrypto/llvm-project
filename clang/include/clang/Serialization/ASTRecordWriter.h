@@ -278,6 +278,8 @@ public:
   /// Writes data related to the OpenMP directives.
   void writeOMPChildren(OMPChildren *Data);
 
+  void writeBoncMetaparamInfo(const BoncMetaparamInfo *Info) {}
+
   /// Emit a string.
   void AddString(StringRef Str) {
     return Writer->AddString(Str, *Record);

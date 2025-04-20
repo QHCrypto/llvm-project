@@ -2778,6 +2778,9 @@ public:
   }
 
   OMPTraitInfo *readOMPTraitInfo() { return Reader.readOMPTraitInfo(); }
+  BoncMetaparamInfo *readBoncMetaparamInfo() {
+    return Reader.readBoncMetaparamInfo();
+  }
 
   template <typename T> T *GetLocalDeclAs(uint32_t LocalID) {
     return Reader.GetLocalDeclAs<T>(LocalID);

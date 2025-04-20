@@ -3831,3 +3831,18 @@ def BoncRound : DeclOrStmtAttr {
                               "function, 'for', 'while', and 'do' statements">;
   let Documentation = [Undocumented];
 }
+
+class BoncMetaparamInfoArgument<string name> : Argument<name, 0>;
+
+def BoncMetaparam : InheritableParamAttr {
+  let Spellings = [CXX11<"bonc", "metaparam">, C2x<"bonc", "metaparam">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Args = [BoncMetaparamInfoArgument<"MetaparamInfo">];
+
+  let Documentation = [Undocumented];
+
+  let AdditionalMembers = [{
+    BoncMetaparamInfo &getTraitInfo() { return *metaparamInfo; }
+  }];
+  let HasCustomParsing = 1;
+}

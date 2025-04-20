@@ -2813,6 +2813,7 @@ private:
 
   void ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
                                 CachedTokens &OpenMPTokens);
+  void ParseBoncMetaparamAttributeArgs(ArgsVector &Args);
 
   void ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
                                             CachedTokens &OpenMPTokens,

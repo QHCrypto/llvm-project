@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/TokenKinds.h"
 #include "clang/Parse/Parser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
@@ -4228,6 +4229,46 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
   }
 }
 
+void Parser::ParseBoncMetaparamAttributeArgs(ArgsVector &Args) {
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.consumeOpen()) {
+    Diag(Tok, diag::err_expected) << tok::l_paren;
+    return;
+  }
+  [[gnu::unused]]
+  bool SawError = false;
+  while (1) {
+    ExprResult ER = ParseConstantExpression();
+    if (ER.isInvalid()) {
+      SkipUntil({tok::ellipsis, tok::comma, tok::r_paren}, StopBeforeMatch);
+      SawError = true;
+    }
+    Args.push_back(ER.get());
+    
+    if (Tok.is(tok::ellipsis)) {
+      SourceLocation EllipsisLoc = ConsumeToken();
+
+      StringRef str("...");
+      QualType CharTy = Actions.Context.CharTy;
+      QualType ArrayTy = Actions.Context.getStringLiteralArrayType(CharTy, str.size());
+      auto* lit = StringLiteral::Create(Actions.Context, str, StringLiteral::Ascii, false, ArrayTy, EllipsisLoc);
+      Args.push_back(lit);
+
+      ExprResult RangeRHS = ParseConstantExpression();
+      if (RangeRHS.isInvalid()) {
+        SkipUntil({tok::comma, tok::r_paren}, StopBeforeMatch);
+        SawError = true;
+      }
+    }
+    if (Tok.isNot(tok::comma)){
+      break;
+    }
+    ConsumeToken(); // comma
+  }
+
+  T.consumeClose();
+}
+
 /// ParseCXX11AttributeArgs -- Parse a C++11 attribute-argument-clause.
 ///
 /// [C++11] attribute-argument-clause:
@@ -4282,6 +4323,17 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
 
     // We claim that an attribute was parsed and added so that one is not
     // created for us by the caller.
+    return true;
+  }
+  
+  if (ScopeName && ScopeName->isStr("bonc") && AttrName->isStr("metaparam")) {
+    ArgsVector Args;
+    ParseBoncMetaparamAttributeArgs(Args);
+    Attrs.addNew(
+      AttrName,
+      AttrNameLoc,
+      ScopeName, ScopeLoc, nullptr, 0,
+      getLangOpts().CPlusPlus ? ParsedAttr::AS_CXX11 : ParsedAttr::AS_C2x);
     return true;
   }
 
