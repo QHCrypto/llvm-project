@@ -4259,6 +4259,7 @@ void Parser::ParseBoncMetaparamAttributeArgs(ArgsVector &Args) {
         SkipUntil({tok::comma, tok::r_paren}, StopBeforeMatch);
         SawError = true;
       }
+      Args.push_back(RangeRHS.get());
     }
     if (Tok.isNot(tok::comma)){
       break;

@@ -2643,6 +2643,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   ArgVals.reserve(Args.size());
 
   SmallVector<llvm::Metadata*, 16> BoncMetaparams;
+  bool HasBoncMetaparams = false;
 
   // Create a pointer value for every parameter declaration.  This usually
   // entails copying one or more LLVM IR arguments into an alloca.  Don't push
@@ -2986,6 +2987,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
     std::vector<llvm::Metadata *> BoncMetaparamValues;
     if (const auto *BoncMetaparam = Arg->getAttr<BoncMetaparamAttr>()) {
+      HasBoncMetaparams = true;
       llvm::MDBuilder MDB(CGM.getLLVMContext());
       auto *MPInfo = BoncMetaparam->getMetaparamInfo();
       auto Values = MPInfo->Values;
@@ -3001,9 +3003,11 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
         llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparamValues));
   }
 
-  Fn->addMetadata(
-      llvm::LLVMContext::MD_bonc_metaparam,
-      *llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparams));
+  if (HasBoncMetaparams) {
+    Fn->addMetadata(
+        llvm::LLVMContext::MD_bonc_metaparam,
+        *llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparams));
+  }
 
   if (getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()) {
     for (int I = Args.size() - 1; I >= 0; --I)
