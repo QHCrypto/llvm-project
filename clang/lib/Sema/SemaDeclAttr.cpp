@@ -13,6 +13,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTMutationListener.h"
+#include "clang/AST/Bonc.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -24,6 +25,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/DarwinSDKInfo.h"
+#include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetBuiltins.h"
@@ -7722,6 +7724,70 @@ static void handleCFGuardAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) CFGuardAttr(S.Context, AL, Arg));
 }
 
+static void handleBoncMetaparamAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  auto* PD = cast<ParmVarDecl>(D);
+  auto Ty = PD->getType();
+  auto* Id = PD->getIdentifier();
+  assert(Id && "BoncMetaparamAttr should only be applied to named declarations");
+  auto Name = Id->getName();
+  if (!(Ty->isIntegerType() || Ty->isBooleanType())) {
+    S.Diag(D->getBeginLoc(), diag::err_bonc_metaparam_invalid_type) << Name << Ty;
+    return;
+  }
+
+  std::vector<llvm::APSInt> Values;
+  bool expectingRangeRhs = false;
+  for (size_t I = 0; I < AL.getNumArgs(); ++I) {
+    auto* ArgExpr = AL.getArgAsExpr(I);
+    if (const auto *Literal = dyn_cast<StringLiteral>(ArgExpr->IgnoreParenCasts())) {
+      if (Literal->isAscii() && Literal->getString() == "...") {
+        assert(!expectingRangeRhs);
+        expectingRangeRhs = true;
+        continue;
+      }
+      S.Diag(ArgExpr->getBeginLoc(), diag::err_attribute_argument_type)
+          << AL << AANT_ArgumentIntegerConstant;
+      return;
+    }
+    Expr::EvalResult ER;
+    if (ArgExpr->EvaluateAsRValue(ER, S.Context) && !ER.HasSideEffects && !ER.HasUndefinedBehavior) {
+      llvm::APSInt Value;
+      if (!ER.Val.toIntegralConstant(Value, Ty, S.Context)) {
+        // TODO: better error message
+        S.Diag(ArgExpr->getBeginLoc(), diag::err_attribute_argument_type)
+            << AL << AANT_ArgumentIntegerConstant;
+        return;
+      }
+      if (expectingRangeRhs) {
+        assert((Values.size() > 0) && "Needs a lhs range oprand");
+        auto Lhs = Values.back();
+        if (Value < Lhs) {
+          S.Diag(ArgExpr->getBeginLoc(), diag::ext_gnu_case_range);
+          return;
+        }
+        if (Value - Lhs > 65536) {
+          S.Diag(ArgExpr->getBeginLoc(), diag::ext_gnu_case_range);
+          return;
+        }
+        void(Lhs++);
+        for (llvm::APSInt i = Lhs; i <= Value; ++i) {
+          Values.push_back(i);
+        }
+        expectingRangeRhs = false;
+      } else {
+        Values.push_back(Value);
+      }
+    } else {
+      S.Diag(ArgExpr->getBeginLoc(), diag::err_attribute_argument_type)
+          << AL << AANT_ArgumentIntegerConstant;
+      return;
+    }
+  }
+
+  auto* MI = new BoncMetaparamInfo(Name, Values);
+  D->addAttr(BoncMetaparamAttr::CreateImplicit(S.Context, MI));
+}
+
 
 template <typename AttrTy>
 static const AttrTy *findEnforceTCBAttrByName(Decl *D, StringRef Name) {
@@ -8442,7 +8508,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttribute<BoncRoundAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_BoncMetaparam:
-    // TODO
+    handleBoncMetaparamAttr(S, D, AL);
     break;
   }
 }

@@ -10781,6 +10781,10 @@ def err_omp_unroll_full_variable_trip_count : Error<
 def note_omp_directive_here : Note<"'%0' directive found here">;
 } // end of OpenMP category
 
+let CategoryName = "BonC Issue" in {
+def err_bonc_metaparam_invalid_type : Error<"metaparameter '%0' must be int or bool, got %1">;
+}
+
 let CategoryName = "Related Result Type Issue" in {
 // Objective-C related result type compatibility
 def warn_related_result_type_compatibility_class : Warning<

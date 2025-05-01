@@ -4332,7 +4332,7 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
     Attrs.addNew(
       AttrName,
       AttrNameLoc,
-      ScopeName, ScopeLoc, nullptr, 0,
+      ScopeName, ScopeLoc, Args.data(), Args.size(),
       getLangOpts().CPlusPlus ? ParsedAttr::AS_CXX11 : ParsedAttr::AS_C2x);
     return true;
   }

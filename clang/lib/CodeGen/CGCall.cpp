@@ -21,6 +21,8 @@
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Attrs.inc"
+#include "clang/AST/Bonc.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -2640,6 +2642,8 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   SmallVector<ParamValue, 16> ArgVals;
   ArgVals.reserve(Args.size());
 
+  SmallVector<llvm::Metadata*, 16> BoncMetaparams;
+
   // Create a pointer value for every parameter declaration.  This usually
   // entails copying one or more LLVM IR arguments into an alloca.  Don't push
   // any cleanups or do anything that might unwind.  We do that separately, so
@@ -2979,7 +2983,27 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
       }
       break;
     }
+
+    std::vector<llvm::Metadata *> BoncMetaparamValues;
+    if (const auto *BoncMetaparam = Arg->getAttr<BoncMetaparamAttr>()) {
+      llvm::MDBuilder MDB(CGM.getLLVMContext());
+      auto *MPInfo = BoncMetaparam->getMetaparamInfo();
+      auto Values = MPInfo->Values;
+      std::transform(
+          Values.begin(), Values.end(), std::back_inserter(BoncMetaparamValues),
+          [&](llvm::APSInt i) {
+            llvm::Type *Ty =
+                llvm::IntegerType::get(CGM.getLLVMContext(), i.getBitWidth());
+            return MDB.createConstant(llvm::ConstantInt::get(Ty, i));
+          });
+    }
+    BoncMetaparams.push_back(
+        llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparamValues));
   }
+
+  Fn->addMetadata(
+      llvm::LLVMContext::MD_bonc_metaparam,
+      *llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparams));
 
   if (getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()) {
     for (int I = Args.size() - 1; I >= 0; --I)
