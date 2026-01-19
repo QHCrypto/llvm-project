@@ -2985,9 +2985,12 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
       break;
     }
 
-    std::vector<llvm::Metadata *> BoncMetaparamValues;
+    std::vector<llvm::Metadata *> BoncMetaparamTuple;
+    BoncMetaparamTuple.push_back(llvm::MDString::get(CGM.getLLVMContext(),
+                                                 Arg->getName()));
     if (const auto *BoncMetaparam = Arg->getAttr<BoncMetaparamAttr>()) {
       HasBoncMetaparams = true;
+      std::vector<llvm::Metadata *> BoncMetaparamValues;
       llvm::MDBuilder MDB(CGM.getLLVMContext());
       auto *MPInfo = BoncMetaparam->getMetaparamInfo();
       auto Values = MPInfo->Values;
@@ -2998,9 +3001,11 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                 llvm::IntegerType::get(CGM.getLLVMContext(), i.getBitWidth());
             return MDB.createConstant(llvm::ConstantInt::get(Ty, i));
           });
+      BoncMetaparamTuple.push_back(
+          llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparamValues));
     }
     BoncMetaparams.push_back(
-        llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparamValues));
+        llvm::MDNode::get(CGM.getLLVMContext(), BoncMetaparamTuple));
   }
 
   if (HasBoncMetaparams) {
